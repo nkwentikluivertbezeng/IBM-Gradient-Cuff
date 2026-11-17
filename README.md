@@ -1,144 +1,77 @@
-# Gradient-Cuff
-Repo for NeurIPS 2024 paper "Gradient Cuff: Detecting Jailbreak Attacks on Large Language Models by Exploring Refusal Loss Landscapes"
+# Gradient Cuff on small open models
 
-Project Page: [TrustSafeAI/GradientCuff-Jailbreak-Defense](https://huggingface.co/spaces/TrustSafeAI/GradientCuff-Jailbreak-Defense)
+A replication of **Gradient Cuff** (Hu, Chen & Ho, NeurIPS 2024, [arXiv:2403.00867](https://arxiv.org/abs/2403.00867)) on Qwen2.5-1.5B-Instruct and Llama-3.2-3B-Instruct in 4-bit on a 6 GB laptop GPU, plus a test against the newer **Best-of-N (BoN)** jailbreak.
 
-Paper preprint: [Gradient Cuff: Detecting Jailbreak Attacks on Large Language Models by Exploring Refusal Loss Landscapes
-](https://arxiv.org/abs/2403.00867)
+- Full write-up: [`REPORT.md`](REPORT.md) (LaTeX version: `report.tex` / `report.pdf`)
+- Plain-language explanation: [`PROJECT_EXPLAINED.md`](PROJECT_EXPLAINED.md)
 
-# Usage 
+## Key results (5% benign false-positive target)
 
-## Step 1: Prepare a JSON file to store jailbreak prompts
+| | Qwen2.5-1.5B | Llama-3.2-3B |
+|---|---|---|
+| Benign FPR, Gradient Cuff | 0.033 | 0.027 |
+| PAIR detection: model alone → Gradient Cuff | 0.146 → 0.390 | 0.707 → 0.890 |
+| BoN detection: model alone → Gradient Cuff | 0.540 → 1.000 | 0.883 → 0.993 |
+| **Scrambled *benign* FPR, Gradient Cuff** | **0.933** | **0.940** |
 
-You need to store your jailbreak prompts in a format like [user_query.json](./user_query.json).
+Gradient Cuff blocks BoN, but it also rejects about 94% of harmless prompts given the same character scrambling. On noisy input it behaves as a "garbled text" filter rather than a harm detector. See REPORT.md §4.
 
+## Repository layout
 
-## Step 2: Run Gradient Cuff
-### Parameters
-The main file [main](./main) receives multiple parameters as input, the full list of these parameters is listed below:
-```python
-def get_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--model_id', 
-        type=str, 
-        choices=[
-            "meta-llama/Llama-2-7b-chat-hf",
-            "meta-llama/Llama-2-13b-chat-hf",
-            "meta-llama/Llama-2-70b-chat-hf",
-            "lmsys/vicuna-7b-v1.5",
-            "lmsys/vicuna-13b-v1.5"
-            ],
-        help="the language model's model-id on hugging face."
-        )
-    parser.add_argument(
-        '--user_query_path', 
-        type=str,
-        help="path of the JSON file to store the jailbreak prompts."
-        )
-    parser.add_argument(
-        '--p_times', 
-        type=int, 
-        default=10,
-        help="the number of the perturbation vectors. Corresponding to the 'P' in our paper."
-        )
-    parser.add_argument(
-        '--sample_times', 
-        type=int, 
-        default=10,
-        help="the number of the sampling times. Corresponding to the 'N' in our paper."
-        )
-    parser.add_argument(
-        '--mu',
-        type=int,
-        default=0.02,
-        help="the perturbation radius. Corresponding to the '\mu' in our paper."
-        )
-    parser.add_argument(
-        '--batch_size',
-        type=int,
-        default=100,
-        help="Larger batch size can accelerate the defending process."
-        )
-    parser.add_argument(
-        '--seed',
-        type=int,
-        default=13,
-        help="the random seed. Fix it to make the results reproducible."
-        )
-    parser.add_argument(
-        '--chat_temperature',
-        type=float,
-        default=0.6,
-        help="sampling parameters when chatting with the protected language model."
-        )
-    parser.add_argument(
-        '--chat_max_length',
-        type=int,
-        default=128,
-        help="sampling parameters when chatting with the protected language model."
-        )
-    parser.add_argument(
-        '--chat_p',
-        type=float,
-        default=0.9,
-        help="sampling parameters when chatting with the protected language model."
-        )
-    parser.add_argument(
-        '--threshold',
-        type=float,
-        default=100,
-        help="the gradient norm threshold used in the second-stage defense. Corresponding to t in the paper."
-        )
-    parser.add_argument(
-        '--hf_token',
-        type=str,
-        help="Your hugging face auth token. Some models like llama-2 cannot be downloaded if the user doesn't have the authentication."
-        )
-    parser.add_argument(
-        '--device',
-        type=str,
-        default= "cuda:0",
-        help="the device on which this program is running. You can choose 'cuda:x' or 'cpu' to specify the device."
-        )
-    parser.add_argument(
-        '--save_path',
-        type=str,
-        default= "response.json",
-        help='the path of the JSON file to store the model's responses to the input queries.'
-        )
+| Path | Purpose |
+|---|---|
+| `gradient_cuff_lab.py` | Detector (`GradientCuffDetector`), 4-bit loader, threshold calibration, metrics |
+| `build_benign.py` | Builds `benign_alpaca.csv` (150 calibration + 150 test Alpaca prompts) |
+| `build_attacks.py` | Builds `attack_pair.csv`, `attack_bon.csv`, `benign_bon_control.csv` |
+| `harmful_behaviors.csv` | AdvBench direct harmful requests (520) |
+| `smoke_test.py` | Quick check: 5 benign + 5 harmful prompts, prints gradient norm and timing |
+| `run_eval.py` | Main experiment: scores every prompt, calibrates the threshold, prints a summary. Resumable |
+| `report_metrics.py` | Accuracy / precision / recall / F1 / FPR from the cached records (no GPU) |
+| `live_demo.py` | Interactive guard: type prompts, see accept/reject and the model's reply |
+| `results/<model>/` | `records.jsonl` (per-prompt scores, no model text), `threshold.json`, `summary.csv`, `metrics.csv` |
+| `upstream/` | The original authors' reference implementation (`main.py`), kept for comparison |
 
-    args = parser.parse_args()
-    assert args.model_id is not None
-    assert args.user_query_path is not None
-    
-    return args
-```
-### Shell command
+## Setup
 
-You may run the program using the command like:
+Python 3.12, an NVIDIA GPU with at least 6 GB of memory, and a Hugging Face account with access to `meta-llama/Llama-3.2-3B-Instruct` (Qwen is ungated).
+
 ```bash
-python main.py --model_id meta-llama/Llama-2-7b-chat-hf --user_query_path user_query.json --save_path response.json --batch_size 25 --hf_token ${your_huggingace_token} --device cuda:0
+python -m venv .venv312
+.venv312\Scripts\activate          # Linux/macOS: source .venv312/bin/activate
+pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu124
+pip install -r requirements.txt
+huggingface-cli login              # only needed for Llama
 ```
-If you want to remove the Gradient Cuff defense, just let N=0:
-```bash
-python main.py --model_id meta-llama/Llama-2-7b-chat-hf --N 0 --user_query_path user_query.json --save_path response.json --batch_size 25 --hf_token ${your_huggingace_token} --device cuda:0
-```
-### Collect responses
 
-The model's response to the input queries would be saved in a JSON file like [response.json](./response.json)
+## Reproduce
 
-# Cite
-If you find Gradient Cuff helpful, please cite our paper in the following format:
+The prompt CSVs are already included. To rebuild them:
+
 ```bash
-@misc{hu2024gradient,
-      title={Gradient Cuff: Detecting Jailbreak Attacks on Large Language Models by Exploring Refusal Loss Landscapes}, 
-      author={Xiaomeng Hu and Pin-Yu Chen and Tsung-Yi Ho},
-      year={2024},
-      eprint={2403.00867},
-      archivePrefix={arXiv},
-      primaryClass={cs.CR}
-}
+python build_benign.py
+python build_attacks.py <JailbreakBench PAIR vicuna-13b artifact.json>
 ```
-# Contact
-Feel free to contact us ([Xiaomeng Hu](mailto:xmhu23@cse.cuhk.edu.hk), [Pin-Yu Chen](mailto:pin-yu.chen@ibm.com), [Tsung-Yi Ho](mailto:tyho@cse.cuhk.edu.hk)) if you have any questions about this project.
+
+Run the evaluation. This takes about 3 GPU-hours for Qwen on a laptop RTX 4050. If it stops, rerunning the same command resumes from `records.jsonl`:
+
+```bash
+python run_eval.py --model Qwen/Qwen2.5-1.5B-Instruct \
+    --data benign_alpaca.csv harmful_behaviors.csv attack_pair.csv attack_bon.csv benign_bon_control.csv
+python report_metrics.py results/qwen-qwen2-5-1-5b-instruct
+```
+
+`report_metrics.py` works on the committed `results/` straight away, so you can check the reported numbers without a GPU.
+
+## Live input
+
+After `run_eval.py` has calibrated a threshold for a model:
+
+```bash
+python live_demo.py --model Qwen/Qwen2.5-1.5B-Instruct
+```
+
+Type a prompt and press Enter. For each prompt the script runs the two Gradient Cuff checks, prints whether the prompt was accepted (with its refusal rate and gradient norm), and then shows the model's reply or a refusal. Each prompt takes about 5–15 s on a 6 GB laptop GPU, because the check needs up to 111 generations. Use `--threshold X` to try a different threshold.
+
+## Credits and licence
+
+The detector follows the method and reference code of Hu, Chen & Ho ([IBM/Gradient-Cuff](https://github.com/IBM/Gradient-Cuff)); the original licence is kept in `LICENSE`. Datasets: AdvBench (Zou et al., 2023), JailbreakBench PAIR artifacts (Chao et al., 2024), Stanford Alpaca (Taori et al., 2023; CC BY-NC 4.0). BoN augmentation follows Hughes et al. (2024).

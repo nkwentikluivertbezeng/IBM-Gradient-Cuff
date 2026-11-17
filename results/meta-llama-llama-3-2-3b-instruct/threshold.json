@@ -1,0 +1,9 @@
+{
+  "target_benign_refusal_rate": 0.05,
+  "calibration_benign_n": 150,
+  "calibration_observed_refusal_rate": 0.04666666666666667,
+  "threshold": 27.943050384521484,
+  "target_achievable": true,
+  "fixed_refusal_count": 0,
+  "model": "meta-llama/Llama-3.2-3B-Instruct"
+}

@@ -1,0 +1,6 @@
+attack_family,n,no_defense_refusal,stage1_reject,stage2_reject,gradient_cuff_refusal,median_grad_norm,mean_seconds
+BoN,300,0.54,0.49,0.503,1.0,563.448,8.329
+PAIR,82,0.146,0.134,0.232,0.39,131.16,10.522
+benign,150,0.007,0.007,0.027,0.033,0.0,9.4
+benign_BoN_control,150,0.313,0.3,0.62,0.933,392.373,8.281
+direct_harmful_request,520,0.987,0.975,0.017,0.996,inf,4.473

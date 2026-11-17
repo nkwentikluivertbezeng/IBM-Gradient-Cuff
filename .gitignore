@@ -1,0 +1,17 @@
+# Local files not meant for the public repo
+_archive/
+.vscode/
+
+# Python environments and caches
+.venv*/
+__pycache__/
+*.pyc
+
+# Run logs (progress output only)
+*.log
+
+# LaTeX build by-products
+*.aux
+*.out
+*.toc
+*.synctex.gz

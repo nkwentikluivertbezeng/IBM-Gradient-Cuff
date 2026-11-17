@@ -1,0 +1,12 @@
+# Versions used for the reported runs (Python 3.12, CUDA 12.4).
+# Install torch first from the CUDA index, e.g.:
+#   pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu124
+torch==2.6.0
+transformers==5.23.0
+bitsandbytes==0.50.2
+accelerate==1.15.0
+pandas==3.1.1
+numpy==2.5.5
+scikit-learn==1.9.1
+datasets==5.2.0
+tqdm==4.70.1
