@@ -3,7 +3,6 @@
 A replication of **Gradient Cuff** (Hu, Chen & Ho, NeurIPS 2024, [arXiv:2403.00867](https://arxiv.org/abs/2403.00867)) on Qwen2.5-1.5B-Instruct and Llama-3.2-3B-Instruct in 4-bit on a 6 GB laptop GPU, plus a test against the newer **Best-of-N (BoN)** jailbreak.
 
 - Full write-up: [`REPORT.md`](REPORT.md) (LaTeX version: `report.tex` / `report.pdf`)
-- Plain-language explanation: [`PROJECT_EXPLAINED.md`](PROJECT_EXPLAINED.md)
 
 ## Key results (5% benign false-positive target)
 
